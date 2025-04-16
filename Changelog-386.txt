@@ -1,6 +1,17 @@
 Asuswrt-Merlin Changelog
 ========================
 
+386.14_3 (16-Apr-2025)
+   - UPDATED: OpenVPN to 2.6.14.
+   - UPDATED: miniupnpd to 2.3.7 (20250207 snapshot)
+   - UPDATED: amtm to 5.2 (decoderman)
+   - UPDATED: dnsmasq to 2.91.
+   - CHANGED: Settings/JFFS backup uploads file picker  will filter by
+              file extension.
+   - FIXED: CVE-2024-9143 in OpenSSL (Debian backport by RSDNTWK
+   - FIXED: CVE-2024-13176 in OpenSSL (Ubuntu backport by RSDNTWK)
+
+
 386.14_2 (17-Nov-2024)
   - UPDATED: OpenVPN to 2.6.12.
   - CHANGED: Enabled Netfilter queue support for SDK6/SDK7
