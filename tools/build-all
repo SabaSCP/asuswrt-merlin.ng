@@ -22,37 +22,37 @@ export BUILDREV=1
 RSYNC_TREE=y
 
 # Combined RT-AC68U image?
-COMBINED=y
+COMBINED=n
 
 ### Uncomment the models you wish to build.
 
 BAC68=y
 
-BAC88=y
-BAC3100=y
-BAC5300=y
+BAC88=n
+BAC3100=n
+BAC5300=n
 
-BAC86=y
-BGTAC2900=y
+BAC86=n
+BGTAC2900=n
 
-BAX88=y
-BGTAX11000=y
+BAX88=n
+BGTAX11000=n
 
-BAX58=y
-BAX56=y
+BAX58=n
+BAX56=n
 
-BAX86=y
-BAX68=y
-BGTAXE11000=y
-BAC68V4=y
+BAX86=n
+BAX68=n
+BGTAXE11000=n
+BAC68V4=n
 
-BGTAX6000=y
-BXT12=y
-BGTAXE16000=y
-BGTAX11000_PRO=y
+BGTAX6000=n
+BXT12=n
+BGTAXE16000=n
+BGTAX11000_PRO=n
 
 ### Branches for each model
-BRANCH_AC68=master
+BRANCH_AC68=386.14_3
 
 BRANCH_AC88=master
 BRANCH_AC3100=master
@@ -88,7 +88,7 @@ STAGE_LOC="$HOME/images"
 FINAL_LOC=/media/sf_Share
 
 # Location of the original source code
-SRC_LOC="$HOME/amng"
+SRC_LOC="${HOME}/asuswrt-merlin.ng"
 
 ### End config
 
