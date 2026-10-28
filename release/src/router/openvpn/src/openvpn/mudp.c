@@ -409,11 +409,7 @@ multi_process_io_udp(struct multi_context *m)
     {
         if (!IS_SIG(&m->top))
         {
-            bool ret = true;
-            while (ret)
-            {
-                ret = multi_process_incoming_dco(m);
-            }
+            dco_read_and_process(&m->top.c1.tuntap->dco);
         }
     }
 #endif
@@ -466,6 +462,7 @@ tunnel_server_udp(struct context *top)
     struct multi_context multi;
 
     top->mode = CM_TOP;
+    top->multi = &multi;
     context_clear_2(top);
 
     /* initialize top-tunnel instance */

@@ -3,16 +3,17 @@
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-<meta name="generator" content="Docutils 0.20.1: https://docutils.sourceforge.io/" />
+<meta name="generator" content="Docutils 0.22.3: https://docutils.sourceforge.io/" />
 <title>openvpn</title>
 <style type="text/css">
 
 /*
 :Author: David Goodger (goodger@python.org)
-:Id: $Id: html4css1.css 8954 2022-01-20 10:10:25Z milde $
+:Id: $Id: html4css1.css 9511 2024-01-13 09:50:07Z milde $
 :Copyright: This stylesheet has been placed in the public domain.
 
 Default cascading style sheet for the HTML output of Docutils.
+Despite the name, some widely supported CSS2 features are used.
 
 See https://docutils.sourceforge.io/docs/howto/html-stylesheets.html for how to
 customize this style sheet.
@@ -275,7 +276,7 @@ pre.literal-block, pre.doctest-block, pre.math, pre.code {
   margin-left: 2em ;
   margin-right: 2em }
 
-pre.code .ln { color: grey; } /* line numbers */
+pre.code .ln { color: gray; } /* line numbers */
 pre.code, code { background-color: #eeeeee }
 pre.code .comment, code .comment { color: #5C6576 }
 pre.code .keyword, code .keyword { color: #3B0D06; font-weight: bold }
@@ -301,7 +302,7 @@ span.option {
 span.pre {
   white-space: pre }
 
-span.problematic {
+span.problematic, pre.problematic {
   color: red }
 
 span.section-subtitle {
@@ -1406,15 +1407,19 @@ tls-client
 packet addresses (not ports), and is useful in cases where routes or
 ifconfig settings pushed to the client would create an IP numbering
 conflict.</p>
+<p>Valid syntax:</p>
+<pre class="literal-block">
+client-nat snat|dnat network netmask alias
+</pre>
 <p>Examples:</p>
 <pre class="literal-block">
-client-nat snat 192.168.0.0/255.255.0.0
-client-nat dnat 10.64.0.0/255.255.0.0
+client-nat snat 192.168.0.0 255.255.0.0 10.64.0.0
+client-nat dnat 10.64.0.0 255.255.0.0 192.168.0.0
 </pre>
-<p><tt class="docutils literal">network/netmask</tt> (for example <code>192.168.0.0/255.255.0.0</code>) defines
-the local view of a resource from the client perspective, while
-<tt class="docutils literal">alias/netmask</tt> (for example <code>10.64.0.0/255.255.0.0</code>) defines the
-remote view from the server perspective.</p>
+<p><tt class="docutils literal">network</tt> and <tt class="docutils literal">netmask</tt> (for example <code>192.168.0.0
+255.255.0.0</code>) define the local view of a resource from the client
+perspective, while <tt class="docutils literal">alias</tt> (for example <code>10.64.0.0</code>) defines the
+remote view from the server perspective using the same netmask.</p>
 <p>Use <code>snat</code> (source NAT) for resources owned by the client and
 <code>dnat</code> (destination NAT) for remote resources.</p>
 <p class="last">Set <tt class="docutils literal"><span class="pre">--verb</span> 6</tt> for debugging info showing the transformation of
@@ -1983,7 +1988,9 @@ failure in the case of the Invalid/Expired auth-token with the
 external-auth option unless the client could authenticate in another
 acceptable way (e.g. client certificate), otherwise returning success
 will lead to authentication bypass (as does returning success on a wrong
-password from a script).</p>
+password from a script). In the case that Expired token is accepted
+the token will keep the session id and start time from the original
+(expired) token.</p>
 </td></tr>
 <tr><td class="option-group" colspan="2">
 <kbd><span class="option">--auth-gen-token-secret <var>file</var></span></kbd></td>

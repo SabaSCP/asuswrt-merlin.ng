@@ -1676,7 +1676,18 @@ show_http_proxy_options(const struct http_proxy_options *o)
 void
 options_detach(struct options *o)
 {
+    /* The options struct carries two gc_arena's (one generic and one specific
+     * to the DNS settings), which the by-value options
+     * copy in inherit_context_child()/inherit_context_top() shares with the
+     * source.
+     *
+     * Detach both (i.e. re-initialize them), otherwise child's call of
+     * gc_free() (or context teardown) would free allocations the source
+     * context still references, leading to a use-after-free (and subsequent
+     * double-free).
+     */
     gc_detach(&o->gc);
+    gc_detach(&o->dns_options.gc);
     o->routes = NULL;
     o->client_nat = NULL;
     clone_push_list(o);
@@ -6552,7 +6563,15 @@ add_option(struct options *options,
     else if (streq(p[0], "tun-mtu") && p[1] && !p[3])
     {
         VERIFY_PERMISSION(OPT_P_PUSH_MTU|OPT_P_CONNECTION);
-        options->ce.tun_mtu = positive_atoi(p[1]);
+        int mtu = positive_atoi(p[1]);
+        if (mtu < TUN_MTU_MIN || mtu > TUN_MTU_MAX)
+        {
+            msg(msglevel, "--mtu parm must be between %d and %d.", TUN_MTU_MIN,
+                TUN_MTU_MAX);
+            goto err;
+        }
+
+        options->ce.tun_mtu = mtu;
         options->ce.tun_mtu_defined = true;
         if (p[2])
         {
@@ -9164,6 +9183,15 @@ add_option(struct options *options,
     {
         VERIFY_PERMISSION(OPT_P_TLS_PARMS);
         options->tls_timeout = positive_atoi(p[1]);
+        /* Constrain the timeout to not have problems with
+         * RELIABLE_MAX_TIMEOUT_SHIFT creating an overflow. 65k seconds
+         * timeout is already way too much anyway */
+        if (options->tls_timeout < 1 || options->tls_timeout > RELIABLE_MAX_INITIAL_TIMEOUT)
+        {
+            msg(msglevel, "tls_timeout: Must be an integer between %d and %d, not %d",
+                1, RELIABLE_MAX_INITIAL_TIMEOUT, options->tls_timeout);
+            goto err;
+        }
     }
     else if (streq(p[0], "reneg-bytes") && p[1] && !p[2])
     {

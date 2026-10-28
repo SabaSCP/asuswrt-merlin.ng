@@ -1,3 +1,239 @@
+Overview of changes in 2.6.23
+=============================
+Security fixes
+--------------
+- SSL: do not trust the peer's request to resend the wrapped client key
+  (OpenVPN/openvpn-private-issues#181)
+
+- reliability layer: Avoid unbounded reliable TLS timeout (CVE-2026-84732)
+
+- reliability layer: Ignore acks for packets that cannot be outstanding
+  (CVE-2026-84732)
+
+  (both reliability layer bugs found by Mark Bregman <mark.bregman@fox-it.com>,
+   tracked in Github: OpenVPN/openvpn-private-issues#161)
+
+- improve on check_session_buf_not_used(), catch possible double-free in
+  the lame duck case (CVE-2026-84471).
+
+  (Bug reported by Andreas Gabriel Berbescu <aberbescu@gmail.com>,
+   tracked in Github: openvpn/openvpn-private-issues#157, and by
+   Haruki Oyama (Waseda University), tracked in private-issues#132)
+
+- Windows: fix ``CreateProcess()`` command line quoting for characters that
+  are special to ``cmd.exe`` and where a combination of validation script
+  plus rogue CA could lead to misbehavior (CVE-2026-84256)
+
+  (Bug found by Clouditera Security <security@clouditera.com>, tracked
+   in Github: OpenVPN/openvpn-private-issues#159)
+
+- Windows: fix ``tapctl`` to always call ``netsh.exe`` with full path
+  (as we do elsewhere) (CVE-2026-84226)
+
+  (Bug found by BreachX Zero Day Labs, using Typhon AI Mil v2, tracked
+   in Github: OpenVPN/openvpn-private-issues#164)
+
+- Windows: don't use NULL DACL with system objects, namely the
+  ``--service`` exit event and the ``netsh.exe`` guard semaphore.  The
+  old approach was prone to a local DoS where one user could interfere
+  with other users' openvpn processes by blocking the netsh semaphore
+  or sending events.  This only affects setups not using the iservice,
+  or using the automatic service to start/stop openvpn (CVE-2026-82312).
+
+  (Bug found by DEBRAJ BASAK <https://in.linkedin.com/in/debrajbasak>,
+   tracked in Github: OpenVPN/openvpn-private-issues#167)
+
+- Windows: dhcp: Fix off-by-one in write_dhcp_search_str() temp buffer guard
+  (suitable DHCP options could lead to a single-byte overflow of a temp
+   buffer, CVE-2026-81738)
+
+  (Bug found by Andre Kropp (Nexory) and ChinhNguyen, tracked
+   in Github: OpenVPN/openvpn-private-issues#165)
+
+- Windows: openvpnserv: detect and refuse sibling dirs in CheckConfigPath
+  (CVE-2026-81830)
+
+  (Bug found by Harshit Varu <harshitvaru666@gmail.com>, tracked
+   in Github: OpenVPN/openvpn-private-issues#166)
+
+
+Overview of changes in 2.6.22
+=============================
+Security fixes
+--------------
+- openvpnserv (windows): better scrutinize command line passed in
+  from the control socket to openvpn.  This would lead to circumventing
+  admin restrictions on allowed openvpn config directories (but never
+  to "read files the user has no permissions for")  (CVE-2026-63649)
+
+  (Bug found by 章鱼哥 (www.aipyaipy.com), tracked
+   in Github: OpenVPN/openvpn-private-issues#142)
+
+- dco: make key state desync recoverable
+
+  This was reported as a "with suitable timing, a key-update de-sync between
+  OpenVPN and the kernel could trigger an ASSERT()", and was initially
+  handled as security report.  It turned out to be not exploitable, but the
+  state machine was not very robust and so the opportunity was used to
+  improve the code.
+
+  (Bug found by 章鱼哥 (www.aipyaipy.com), tracked
+   in Github: OpenVPN/openvpn-private-issues#143)
+
+Bugfixes
+--------
+- refuse incoming HARD RESET packets with a sequence ID != 0
+  (this is basically making an OpenVPN server ignore and log a
+   "should never happen" client-side misbehaviour, which could lead to
+   TLS handshake establishment failures in p2p TLS setups)
+
+- correct minimum packet length check for 802.1q tagged packets
+  (Github: OpenVPN/openvpn#1044).
+
+  This was also reported (twice) as a security bug, as technically
+  OpenVPN with ``--client-nat`` would read and write up to 4 bytes
+  "after the end of the packet" - but due to the OpenVPN packet buffer
+  layouts, which are always full-frame-sized this is fully safe and has
+  no adverse consequences.
+
+Building/Testing improvements
+-----------------------------
+- fix test_tls_crypt test failures on Windows.
+
+
+Overview of changes in 2.6.21
+=============================
+Security fixes
+--------------
+- Fix use-after-free bug in tls_wrap_reneg(), triggerable by suitable
+  sequence of dynamic tls-crypt control-channel packets (CVE-2026-13117)
+
+  (Bug found by multiple researchers:
+     Trace37 Labs (https://github.com/trace37labs)
+     Haiyang Huang <huanghaiyang83@gmail.com>
+   tracked in Github: OpenVPN/openvpn-private-issues#119, #131)
+
+- Fix another memory leak on reception of suitable tls-crypt-v2 packets
+  that could lead to an out of memory situation and server crash
+  (CVE-2026-13698)
+
+  (Bug found by Max Fillinger <maximilian.fillinger@sentyron.com>, tracked
+   in Github: OpenVPN/openvpn-private-issues#137.  Overlaps with a report
+   from Valton Tahiri <valton.taa@gmail.com> in #138 that we believe to
+   be fixed by this bugfix as well)
+
+- Fix use-after-free bug in ack_write_buf(), triggerable by a well-timed
+  sequence of control channel + authentication packets (CVE-2026-12996)
+
+  (Bug found by multiple researchers:
+     章鱼哥 (www.aipyaipy.com)
+     Haiyang Huang <huanghaiyang83@gmail.com>
+     Haruki Oyama (Waseda University)
+   tracked in Github: OpenVPN/openvpn-private-issues#121, #131, #132)
+
+- Fix server crash on reception of suitably malformed auth-token, if
+  ```--auth-gen-token external-auth`` is active (CVE-2026-13122)
+
+  (Bug found by Haiyang Huang <huanghaiyang83@gmail.com>, tracked in
+   Github: OpenVPN/openvpn-private-issues#118)
+
+- Fix memory-leak in tls-crypt-v2 client key handling that could lead
+  to out-of-memory situations and subsequent server crashes (CVE-2026-12932)
+
+  (Bug found by Valton Tahiri <valton.taa@gmail.com>, tracked in
+   Github: OpenVPN/openvpn-private-issues#133)
+
+- Fix possible 1-byte buffer overrun on NTLMv2 proxy responses.
+  (CVE-2026-11771)
+
+  (Bug found by Tristan Madani (@TristanInSec), tracked in
+   Github: OpenVPN/openvpn-private-issues#116)
+
+
+
+Bugfixes
+--------
+- Windows: fix plugin trusted-dir check prefix bypass
+  (this fixes a bug in the path checking logic we do on Windows for
+   "is loading a plugin from this path allowed?", but since we could
+   not find a way to exploit this unless starting with admin privs or
+   a social engineering attack, not classified as a security fix)
+
+- options: fix use-after-free of DNS options on client connect
+  (using suitable ``--dns`` or ``--dhcp-option DNS`` options in a server
+   config - not pushed, but applying to the server itself - triggers a
+   double free() and use-after-free condition, possibly crashing the
+   server)  (Github: openvpn/OpenVPN#1060)
+
+- Ensure pushed tun-mtu is no lower than TUN_MTU_MIN - this fixes a bug
+  where a server can push a suitable combination of options and make the
+  client ASSERT().
+
+  (Reported as security issue by Haiyang Huang <huanghaiyang83@gmail.com>,
+   but it was decided that the server always has means to make the client
+   "not function properly", and it can not be exploited beyond that)
+
+- Null-terminate tls-crypt client keys when testing - non-exploitable
+  strlen() on a buffer that is not null-terminated
+
+
+Building improvements
+---------------------
+- Github actions: chery-pick relevant changes from master to make
+  GHA building of release/2.6 work again
+
+
+User-visible Changes
+--------------------
+- Make get_random return int64 instead of long - this is a no-op on 64bit
+  platforms, but will create consistency in temp file names created on
+  32bit and 64bit platforms (= user visible change on 32bit platforms).
+
+
+Overview of changes in 2.6.20
+=============================
+Security fixes
+--------------
+- fix race condition in TLS handshake that could lead to leaking of
+  packet data from a previous handshake under specific circumstances
+  (CVE-2026-40215)
+
+  (Bug found by XlabAI Team of Tencent Xuanwu Lab (xlabai@tencent.com))
+
+- fix server ASSERT() on receiving a suitably malformed packet with
+  a valid tls-crypt-v2 key (CVE-2026-35058)
+
+  (Bug found by XlabAI Team of Tencent Xuanwu Lab (xlabai@tencent.com),
+   and independently by Emma Reuter of Cisco ASIG (TALOS-2026-2381))
+
+Bugfixes
+--------
+- management: stop periodic bytecount output on mgmt client disconnection
+
+- FreeBSD: make DCO work on systems with no IPv4 support
+
+- FreeBSD: fix compilation with --enable-async-push on FreeBSD 15
+
+- Linux: make DCO work on big endian architectures (MIPS, PowerPC)
+
+- Windows: fix deinstallation progress bar on adapter deletion.
+
+- Linux: fix problem with DCO kernel notifications getting lost, leading
+  to overcounting of number of connected clients and general confusion
+  between kernel and userland regarding peer status (Github #900, #918,
+  #931, #919, #945) - this is a backport of the fixes in 2.7 plus the
+  infrastructural changes around DCO needed to support it.
+
+Documentation updates
+---------------------
+- fix ``client-nat`` syntax and examples
+
+Code maintenance / Compat changes
+---------------------------------
+- adjust some 'const' qualifiers to ISO C23 updates in glibc-2.43
+  (namely some strstr(), strchr() and strrchr() uses)
+
+
 Overview of changes in 2.6.19
 =============================
 Bugfixes

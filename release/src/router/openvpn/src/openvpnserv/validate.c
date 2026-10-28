@@ -56,7 +56,9 @@ static PTOKEN_GROUPS GetTokenGroups(const HANDLE token);
 
 /*
  * Check workdir\fname is inside config_dir
- * The logic here is simple: we may reject some valid paths if ..\ is in any of the strings
+ * The logic here is simple:
+ *      we may reject some valid paths if ".." is in the filename
+ *      or if there's no "\" after the config directory
  */
 static BOOL
 CheckConfigPath(const WCHAR *workdir, const WCHAR *fname, const settings_t *s)
@@ -82,9 +84,18 @@ CheckConfigPath(const WCHAR *workdir, const WCHAR *fname, const settings_t *s)
     }
 
     config_dir = s->config_dir;
+    size_t config_dir_len = wcslen(config_dir);
 
-    if (wcsncmp(config_dir, config_file, wcslen(config_dir)) == 0
-        && wcsstr(config_file + wcslen(config_dir), L"..") == NULL)
+    /* check for a path separator after config_dir */
+    if (config_dir_len && config_dir_len < wcslen(config_file)
+        && config_dir[config_dir_len - 1] != L'\\'
+        && config_file[config_dir_len] != L'\\')
+    {
+        return FALSE;
+    }
+
+    if (wcsncmp(config_dir, config_file, config_dir_len) == 0
+        && wcsstr(config_file + config_dir_len, L"..") == NULL)
     {
         return TRUE;
     }
@@ -314,8 +325,9 @@ IsUserInGroup(PSID sid, const PTOKEN_GROUPS token_groups, const WCHAR *group_nam
 }
 
 /*
- * Check whether option argv[0] is white-listed. If argv[0] == "--config",
- * also check that argv[1], if present, passes CheckConfigPath().
+ * Check whether option argv[0] is white-listed. If argv[0] == "--config", also
+ * check that argv[1], if present, passes CheckConfigPath(). If argv[0] is "--setenv",
+ * check that we do not allow random options to be passed via "--setenv opt ...".
  * The caller should set argc to the number of valid elements in argv[] array.
  */
 BOOL
@@ -333,6 +345,12 @@ CheckOption(const WCHAR *workdir, int argc, WCHAR *argv[], const settings_t *s)
 
     /* option name starts at 2 characters from argv[i] */
     if (OptionLookup(argv[0] + 2, white_list) == -1)   /* not found */
+    {
+        return FALSE;
+    }
+
+    /* Do not allow "--setenv opt ..." */
+    if (wcscmp(argv[0], L"--setenv") == 0 && argc > 1 && wcscmp(argv[1], L"opt") == 0)
     {
         return FALSE;
     }

@@ -149,8 +149,7 @@ tls_wrap_control(struct tls_wrap_ctx *ctx, uint8_t header, struct buffer *buf,
         if ((header >> P_OPCODE_SHIFT) == P_CONTROL_HARD_RESET_CLIENT_V3
             || (header >> P_OPCODE_SHIFT) == P_CONTROL_WKC_V1)
         {
-            if (!buf_copy(&ctx->work,
-                          ctx->tls_crypt_v2_wkc))
+            if (!ctx->tls_crypt_v2_wkc || !buf_copy(&ctx->work, ctx->tls_crypt_v2_wkc))
             {
                 msg(D_TLS_ERRORS, "Could not append tls-crypt-v2 client key");
                 buf->len = 0;
@@ -200,8 +199,7 @@ bool
 read_control_auth(struct buffer *buf,
                   struct tls_wrap_ctx *ctx,
                   const struct link_socket_actual *from,
-                  const struct tls_options *opt,
-                  bool initial_packet)
+                  const struct tls_options *opt)
 {
     struct gc_arena gc = gc_new();
     bool ret = false;
@@ -209,7 +207,7 @@ read_control_auth(struct buffer *buf,
     const uint8_t opcode = *(BPTR(buf)) >> P_OPCODE_SHIFT;
     if ((opcode == P_CONTROL_HARD_RESET_CLIENT_V3
          || opcode == P_CONTROL_WKC_V1)
-        && !tls_crypt_v2_extract_client_key(buf, ctx, opt, initial_packet))
+        && !tls_crypt_v2_extract_client_key(buf, ctx, opt))
     {
         msg(D_TLS_ERRORS,
             "TLS Error: can not extract tls-crypt-v2 client key from %s",
@@ -286,7 +284,6 @@ void
 free_tls_pre_decrypt_state(struct tls_pre_decrypt_state *state)
 {
     free_buf(&state->newbuf);
-    free_buf(&state->tls_wrap_tmp.tls_crypt_v2_metadata);
     if (state->tls_wrap_tmp.cleanup_key_ctx)
     {
         free_key_ctx_bi(&state->tls_wrap_tmp.opt.key_ctx_bi);
@@ -374,7 +371,7 @@ tls_pre_decrypt_lite(const struct tls_auth_standalone *tas,
      * into newbuf or just setting newbuf to point to the start of control
      * message */
     bool status = read_control_auth(&state->newbuf, &state->tls_wrap_tmp,
-                                    from, NULL, true);
+                                    from, NULL);
 
     if (!status)
     {

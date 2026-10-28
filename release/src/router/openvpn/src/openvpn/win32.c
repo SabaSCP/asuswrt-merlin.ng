@@ -34,6 +34,11 @@
 
 #ifdef _WIN32
 
+#include <minwindef.h>
+#include <winsock2.h>
+#include <accctrl.h>
+#include <aclapi.h>
+
 #include "buffer.h"
 #include "error.h"
 #include "mtu.h"
@@ -145,6 +150,13 @@ set_pause_exit_win32(void)
     pause_exit_enabled = true;
 }
 
+/**
+ * @brief Initializes security attributes with a NULL DACL, allowing
+ *        unrestricted access to the resulting object.
+ *
+ * @param obj Security attributes structure to initialize.
+ * @return true on success, false otherwise.
+ */
 bool
 init_security_attributes_allow_all(struct security_attributes *obj)
 {
@@ -162,6 +174,93 @@ init_security_attributes_allow_all(struct security_attributes *obj)
         return false;
     }
     return true;
+}
+
+/**
+ * @brief Initializes security attributes with a DACL restricted to the
+ *        current process user.
+ *
+ * The resulting DACL grants GENERIC_ALL access to the calling user only,
+ * so the created object cannot be opened, signaled or otherwise accessed
+ * by other users on the system. The allocated DACL must be released with
+ * free_security_attributes() once the security attributes are no longer
+ * needed.
+ *
+ * @param obj Security attributes structure to initialize.
+ * @return true on success, false otherwise.
+ */
+static bool
+init_security_attributes_allow_user(struct security_attributes *obj)
+{
+    bool ret = false;
+
+    CLEAR(*obj);
+    obj->sa.nLength = sizeof(SECURITY_ATTRIBUTES);
+    obj->sa.lpSecurityDescriptor = &obj->sd;
+    obj->sa.bInheritHandle = FALSE;
+
+    if (!InitializeSecurityDescriptor(&obj->sd, SECURITY_DESCRIPTOR_REVISION))
+    {
+        return ret;
+    }
+
+    HANDLE token = NULL;
+    if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &token))
+    {
+        return ret;
+    }
+
+    PTOKEN_USER info = NULL;
+    DWORD info_len = 0;
+    if (!GetTokenInformation(token, TokenUser, info, info_len, &info_len)
+        && GetLastError() != ERROR_INSUFFICIENT_BUFFER)
+    {
+        goto out;
+    }
+
+    info = malloc(info_len);
+    if (!info || !GetTokenInformation(token, TokenUser, info, info_len, &info_len))
+    {
+        goto out;
+    }
+
+    EXPLICIT_ACCESS ea = { 0 };
+    ea.grfAccessPermissions = GENERIC_ALL;
+    ea.grfAccessMode = SET_ACCESS;
+    ea.grfInheritance = NO_INHERITANCE;
+    ea.Trustee.TrusteeForm = TRUSTEE_IS_SID;
+    ea.Trustee.TrusteeType = TRUSTEE_IS_USER;
+    ea.Trustee.ptstrName = (LPTSTR)info->User.Sid;
+
+    if (SetEntriesInAcl(1, &ea, NULL, &obj->dacl) != ERROR_SUCCESS)
+    {
+        goto out;
+    }
+
+    if (SetSecurityDescriptorDacl(&obj->sd, TRUE, obj->dacl, FALSE))
+    {
+        ret = true;
+    }
+
+out:
+    free(info);
+    CloseHandle(token);
+    return ret;
+}
+
+/**
+ * @brief Releases resources allocated by init_security_attributes_allow_user().
+ *
+ * @param obj Security attributes structure to release.
+ */
+static void
+free_security_attributes(struct security_attributes *obj)
+{
+    if (obj->dacl)
+    {
+        LocalFree(obj->dacl);
+        obj->dacl = NULL;
+    }
 }
 
 void
@@ -506,7 +605,7 @@ win32_signal_open(struct win32_signal *ws,
         struct gc_arena gc = gc_new();
         const wchar_t *exit_event_nameW = wide_string(exit_event_name, &gc);
 
-        if (!init_security_attributes_allow_all(&sa))
+        if (!init_security_attributes_allow_user(&sa))
         {
             msg(M_ERR, "Error: win32_signal_open: init SA failed");
         }
@@ -528,6 +627,7 @@ win32_signal_open(struct win32_signal *ws,
                 ws->mode = WSO_MODE_SERVICE;
             }
         }
+        free_security_attributes(&sa);
         gc_free(&gc);
     }
     /* set the ctrl handler in both console and service modes */
@@ -754,14 +854,15 @@ semaphore_open(struct semaphore *s, const char *name)
     s->name = name;
     s->hand = NULL;
 
-    if (init_security_attributes_allow_all(&sa))
+    if (init_security_attributes_allow_user(&sa))
     {
         s->hand = CreateSemaphore(&sa.sa, 1, 1, name);
     }
+    free_security_attributes(&sa);
 
     if (s->hand == NULL)
     {
-        msg(M_WARN|M_ERRNO, "WARNING: Cannot create Win32 semaphore '%s'", name);
+        msg(M_ERR, "Cannot create Win32 semaphore '%s'", name);
     }
     else
     {
@@ -940,6 +1041,22 @@ env_block(const struct env_set *es)
     }
 }
 
+/* special to cmd.exe, which CreateProcess() uses to run .bat/.cmd (VU#123335) */
+#define CMD_QUOTE_TRIGGERS " &|<>^%()!"
+
+static bool
+argv_element_needs_quotes(const char *str)
+{
+    for (const char *c = str; *c != '\0'; ++c)
+    {
+        if (strchr(CMD_QUOTE_TRIGGERS, *c) != NULL)
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
 static WCHAR *
 wide_cmd_line(const struct argv *a, struct gc_arena *gc)
 {
@@ -978,13 +1095,13 @@ wide_cmd_line(const struct argv *a, struct gc_arena *gc)
         {
             buf_printf(&buf, " ");
         }
-        if (string_class(work, CC_ANY, CC_SPACE))
+        if (argv_element_needs_quotes(work))
         {
-            buf_printf(&buf, "%s", work);
+            buf_printf(&buf, "\"%s\"", work);
         }
         else
         {
-            buf_printf(&buf, "\"%s\"", work);
+            buf_printf(&buf, "%s", work);
         }
     }
 
@@ -1676,14 +1793,13 @@ plugin_in_trusted_dir(const WCHAR *plugin_path)
     }
 
     /* Check if the plugin path resides within the plugin/install directory */
-    if ((wcslen(normalized_plugin_dir) > 0) && (wcsnicmp(normalized_plugin_dir,
-                                                         plugin_path, wcslen(normalized_plugin_dir)) == 0))
+    if (win_path_in_dir(plugin_path, normalized_plugin_dir))
     {
         return true;
     }
 
     /* Fallback to the system directory */
-    return wcsnicmp(system_dir, plugin_path, wcslen(system_dir)) == 0;
+    return win_path_in_dir(plugin_path, system_dir);
 }
 
 bool

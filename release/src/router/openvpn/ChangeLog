@@ -1,6 +1,100 @@
 OpenVPN ChangeLog
 Copyright (C) 2002-2025 OpenVPN Inc <sales@openvpn.net>
 
+2026.09.23 -- Version 2.6.23
+
+Arne Schwabe (3):
+      Move check_session_buf_not_used method into the method that free the buffer
+      Avoid unbounded reliable TLS timeout
+      Ignore acks for packets that cannot be outstanding
+
+Heiko Hund (3):
+      openvpnserv: detect sibling dirs in CheckConfigPath
+      win: don't use NULL DACL with system objects
+      tapctl: prevent binary planting with netsh
+
+Lev Stipakov (2):
+      win32: quote arguments that cmd.exe would reinterpret
+      ssl: do not trust the peer's request to resend the wrapped client key
+
+Nexory (1):
+      dhcp: Fix off-by-one in write_dhcp_search_str() temp buffer guard
+
+
+2026.08.05 -- Version 2.6.22
+
+Frank Lichtenheld (2):
+      test_tls_crypt: Fix test failure on Windows
+      ssl: Ignore hard reset packets with a non-zero packet id
+
+Heiko Hund (1):
+      interactive: forbid "--setenv opt" in startup data
+
+Ralf Lici (1):
+      dco: make key state desync recoverable
+
+rootvector2 (1):
+      proto: correct 802.1Q length check in is_ipv_X
+
+
+2026.07.01 -- Version 2.6.21
+
+Antonio Quartulli (1):
+      options: fix use-after-free of DNS options on client connect
+
+Arne Schwabe (5):
+      Ensure pushed tun-mtu is no lower than TUN_MTU_MIN
+      Make get_random return int64 instead of long
+      Clean up metadata handling in tls_crypt_v2_extract_client_key
+      Ensure we only get the session from valid tokens for external-auth
+      Ensure tls-crypt keys are not setup twice
+
+Frank Lichtenheld (1):
+      GHA: Cherry-pick changes from master to keep working
+
+Gert Doering (1):
+      Fix 1-byte buffer overrun on NTLMv2 proxy responses.
+
+Lev Stipakov (1):
+      win32: fix plugin trusted-dir check prefix bypass
+
+Max Fillinger (3):
+      Null-terminate tls-crypt client keys when testing
+      Fix ack_write_buf use after free
+      Fix tls_wrap_reneg use after free
+
+
+2026.04.22 -- Version 2.6.20
+
+Arne Schwabe (2):
+      DCO Linux: Fix setting DCO ifmode failing on big endian archs
+      Ensure that buffer of freed session are not used
+
+Frank Lichtenheld (2):
+      auth-pam: fix discards 'const' qualifier from pointer target type
+      openvpnmsica: Fix setting of iTicks in schedule_adapter_delete
+
+Gert Doering (4):
+      configure.ac: adjust to native inotify support for FreeBSD 15+
+      dco_freebsd: use AF_LOCAL sockets for ioctl() communication with DCO driver
+      Fix copyright line in README
+      OpenVPN Release 2.6.20
+
+Ralf Lici (5):
+      management: stop bytecount on client disconnection
+      doc: fix client-nat syntax and examples
+      dco: port core/context infrastructure needed for backport of commit 7791f53
+      dco: backport immediate notification processing on Linux and FreeBSD
+      dco-linux: enforce ifindex only for DEL_PEER notifications
+
+Rudi Heitbaum (2):
+      ntlm: fix discards 'const' qualifier from pointer target type
+      dns: fix discards 'const' qualifier from pointer target type
+
+Steffan Karger (1):
+      tls-crypt-v2: Avoid interpreting opcode as part of WKc
+
+
 2026.02.04 -- Version 2.6.19
 
 Arne Schwabe (1):
